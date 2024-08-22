@@ -20,11 +20,6 @@ contract Nft721A is ERC721A, ERC2981, Ownable, Pausable {
         string uri;
     }
 
-    struct Listing {
-        uint256 price;
-        address seller;
-    }
-
     struct Auction {
         address highestBidder;
         uint256 highestBid;
@@ -34,11 +29,9 @@ contract Nft721A is ERC721A, ERC2981, Ownable, Pausable {
     }
 
     mapping(uint256 => TokenMetadata) private _tokenMetadata;
-    mapping(uint256 => Listing) public listings;
     mapping(uint256 => Auction) public auctions;
 
     constructor(address initialOwner) ERC721A("MyToken", "MTK") Ownable(initialOwner) {
-        _setDefaultRoyalty(initialOwner, 500); // 5% royalty
     }
 
     // Minting function
@@ -47,7 +40,8 @@ contract Nft721A is ERC721A, ERC2981, Ownable, Pausable {
         string memory userBaseURI,
         string memory tokenName,
         string memory tokenSymbol,
-        string memory tokenDescription
+        string memory tokenDescription,
+        uint96 royaltyFeeNumerator
     ) external payable whenNotPaused {
         require(quantity + _numberMinted(msg.sender) <= MAX_MINTS, "Exceeded the limit");
         require(totalSupply() + quantity <= MAX_SUPPLY, "Not enough tokens left");
@@ -60,6 +54,7 @@ contract Nft721A is ERC721A, ERC2981, Ownable, Pausable {
             uint256 tokenId = startTokenId + i;
             string memory finalURI = bytes(userBaseURI).length > 0 ? userBaseURI : string(abi.encodePacked(baseURI, _toString(tokenId)));
             _setTokenMetadata(tokenId, tokenName, tokenSymbol, tokenDescription, finalURI);
+            _setTokenRoyalty(tokenId, msg.sender, royaltyFeeNumerator);
         }
     }
 
@@ -91,20 +86,6 @@ contract Nft721A is ERC721A, ERC2981, Ownable, Pausable {
     // Set royalty info
     function setRoyaltyInfo(address receiver, uint96 feeNumerator) external onlyOwner {
         _setDefaultRoyalty(receiver, feeNumerator);
-    }
-
-    // List token for sale
-    function listToken(uint256 tokenId, uint256 price) external whenNotPaused {
-        require(ownerOf(tokenId) == msg.sender, "Not the token owner");
-        listings[tokenId] = Listing(price, msg.sender);
-        approve(address(this), tokenId);  // Approve the contract to transfer the token
-    }
-
-
-    // Cancel listing
-    function cancelListing(uint256 tokenId) external whenNotPaused {
-        require(listings[tokenId].seller == msg.sender, "Not the seller");
-        delete listings[tokenId];
     }
 
     // Batch transfer tokens
